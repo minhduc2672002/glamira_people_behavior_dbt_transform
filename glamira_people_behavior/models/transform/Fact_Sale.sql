@@ -28,9 +28,40 @@ WITH checkout_success AS(
     UNNEST(option) AS option
     GROUP BY 1,2,3,4,5,6
 )
+,format_name AS (
+    SELECT
+        EXTRACT(DATE FROM TIMESTAMP_SECONDS(time_stamp)) AS date_time
+        ,ip
+        ,product_id
+        ,diamond_value
+        ,price
+        ,amount 
+        ,currency
+        ,coalesce(CASE
+        -- Nếu chuỗi chứa số, trích xuất phần trước số và số, sau đó thay thế ký tự `_` và `-` bằng khoảng trắng
+              WHEN REGEXP_CONTAINS(alloy_value, r'[0-9]') THEN
+                  CONCAT(
+                      REGEXP_REPLACE(
+                          SUBSTR(
+                              alloy_value,
+                              1,
+                              GREATEST(1, REGEXP_INSTR(alloy_value, r'[0-9]') - 2)
+                          ),
+                          r'[_-]', ' '
+                      ),
+                      ' ',
+                      REGEXP_EXTRACT(alloy_value, r'[0-9]+')
+                  )
+              WHEN alloy_value LIKE '' THEN NULL
+              -- Nếu chuỗi không chứa số, thay thế ký tự `_` và `-` bằng khoảng trắng
+              ELSE
+                  REGEXP_REPLACE(alloy_value, r'[_-]', ' ')
+          END,'unknown') AS alloy_value
+    FROM transform
+)
 ,genkey AS (
     SELECT
-        time_stamp AS date_key
+        {{ dbt_utils.generate_surrogate_key(['date_time']) }}       AS date_key
         ,{{ dbt_utils.generate_surrogate_key(['ip']) }}             AS location_key
         ,product_id                                                 AS product_key
         ,{{ dbt_utils.generate_surrogate_key(['alloy_value']) }}    AS alloy_key
@@ -42,7 +73,7 @@ WITH checkout_success AS(
             WHEN currency != '' THEN exchange_rate_to_usd
             ELSE 1
         END AS exchange_rate_to_usd
-    FROM transform
+    FROM format_name
     LEFT JOIN {{source('glamira','currency_exchange_rates')}} AS cer
      ON currency = cer.currency_code
 )

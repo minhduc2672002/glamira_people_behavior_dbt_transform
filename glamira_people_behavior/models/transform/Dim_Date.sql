@@ -4,9 +4,9 @@ WITH date_cte AS(
     FROM {{source('glamira','summary')}}
 )
 
-SELECT
-    time_stamp AS date_key
-    ,EXTRACT(DATE FROM TIMESTAMP_SECONDS(time_stamp)) AS full_date
+,transform AS (
+  SELECT
+    EXTRACT(DATE FROM TIMESTAMP_SECONDS(time_stamp)) AS full_date
     ,EXTRACT(YEAR FROM TIMESTAMP_SECONDS(time_stamp)) AS year
     ,EXTRACT(MONTH FROM TIMESTAMP_SECONDS(time_stamp)) AS month 
     ,EXTRACT(QUARTER FROM TIMESTAMP_SECONDS(time_stamp)) AS quarter
@@ -34,4 +34,10 @@ SELECT
       WHEN EXTRACT(DAYOFWEEK FROM TIMESTAMP_SECONDS(time_stamp)) in (2,3,4,5,6) THEN 'Weekday'
       WHEN EXTRACT(DAYOFWEEK FROM TIMESTAMP_SECONDS(time_stamp)) in (1,7) THEN 'Weekend'
      END AS is_weekday_or_weekend
-FROM date_cte
+  FROM date_cte)
+
+
+SELECT DISTINCT
+      {{ dbt_utils.generate_surrogate_key(['full_date']) }}   AS date_key
+      ,*
+FROM transform

@@ -7,6 +7,15 @@ WITH diamond_cte AS (
   FROM {{source('glamira','summary')}},
   UNNEST(option) AS  option
   WHERE option.option_label = 'diamond' OR option.option_label IS NULL
+
+  UNION DISTINCT
+
+  SELECT
+    coalesce(option.value_label,'unknown') AS diamond_value
+  FROM `people-behavior-glamira`.`glamira`.`summary`,
+  UNNEST(cart_products) AS cart_products,
+  UNNEST(cart_products.option) AS  option
+  WHERE option.option_label = 'diamond'
 )
 
 SELECT

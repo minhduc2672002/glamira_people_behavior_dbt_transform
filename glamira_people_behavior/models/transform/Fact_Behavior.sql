@@ -67,7 +67,41 @@ WITH orginal_table AS(
     FROM orginal_table AS ot
     GROUP BY 1,2,3,4,5,6,7
 )
-,genkey AS (
+,format_name AS (
+    SELECT
+        time_stamp     
+        ,ip             
+        ,product_id  
+        ,coalesce(CASE
+        -- Nếu chuỗi chứa số, trích xuất phần trước số và số, sau đó thay thế ký tự `_` và `-` bằng khoảng trắng
+              WHEN REGEXP_CONTAINS(alloy_value, r'[0-9]') THEN
+                  CONCAT(
+                      REGEXP_REPLACE(
+                          SUBSTR(
+                              alloy_value,
+                              1,
+                              GREATEST(1, REGEXP_INSTR(alloy_value, r'[0-9]') - 2)
+                          ),
+                          r'[_-]', ' '
+                      ),
+                      ' ',
+                      REGEXP_EXTRACT(alloy_value, r'[0-9]+')
+                  )
+              WHEN alloy_value LIKE '' THEN NULL
+              -- Nếu chuỗi không chứa số, thay thế ký tự `_` và `-` bằng khoảng trắng
+              ELSE
+                  REGEXP_REPLACE(alloy_value, r'[_-]', ' ')
+          END,'unknown') AS alloy_value
+        ,diamond_value 
+        ,pearl_value    
+        ,stone_value   
+        ,price          
+        ,amount        
+        ,currency      
+        ,collection 
+    FROM transform
+)
+,format_name AS (
     SELECT
         time_stamp AS date_key
         ,{{ dbt_utils.generate_surrogate_key(['ip']) }}             AS location_key
@@ -82,7 +116,6 @@ WITH orginal_table AS(
         ,collection                                                 AS collection
     FROM transform
 )
-
 SELECT
     gk.* 
     ,ROUND(price * amount ,2) AS total_price
