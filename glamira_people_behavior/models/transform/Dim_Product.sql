@@ -1,5 +1,5 @@
 
-WITH product_cte AS(
+WITH dim_product__source AS(
 
     SELECT 
         product_id
@@ -14,18 +14,16 @@ WITH product_cte AS(
         UNNEST(cart_products) AS cart_prodcuts
     WHERE cart_prodcuts.product_id IS NOT NULL
 )
-,product_distinct AS (
+
+,dim_product__drop_duplicate AS (
     SELECT DISTINCT
         product_id 
-    FROM product_cte 
+    FROM dim_product__source 
 )
 
 SELECT 
-    pd.product_id AS product_key
-    ,CASE
-        WHEN p.product_name IS NOT NULL THEN p.product_name
-        ELSE 'unknown'
-     END AS product_name
-FROM product_distinct AS pd
-LEFT JOIN {{source('glamira','products')}} AS p
- ON pd.product_id = p.product_id
+    dim_product.product_id AS product_key
+    ,COALESCE(stg_product.product_name, 'Undefined') AS product_name
+FROM dim_product__drop_duplicate AS dim_product
+LEFT JOIN {{source('glamira','products')}} AS stg_product
+ ON dim_product.product_id = stg_product.product_id

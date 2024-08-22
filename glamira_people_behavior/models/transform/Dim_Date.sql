@@ -1,10 +1,10 @@
-WITH date_cte AS(
+WITH dim_date__source AS(
     SELECT DISTINCT 
         time_stamp
     FROM {{source('glamira','summary')}}
 )
 
-,transform AS (
+,dim_date__extract AS (
   SELECT
     EXTRACT(DATE FROM TIMESTAMP_SECONDS(time_stamp)) AS full_date
     ,EXTRACT(YEAR FROM TIMESTAMP_SECONDS(time_stamp)) AS year
@@ -34,10 +34,10 @@ WITH date_cte AS(
       WHEN EXTRACT(DAYOFWEEK FROM TIMESTAMP_SECONDS(time_stamp)) in (2,3,4,5,6) THEN 'Weekday'
       WHEN EXTRACT(DAYOFWEEK FROM TIMESTAMP_SECONDS(time_stamp)) in (1,7) THEN 'Weekend'
      END AS is_weekday_or_weekend
-  FROM date_cte)
+  FROM dim_date__source)
 
 
 SELECT DISTINCT
-      {{ dbt_utils.generate_surrogate_key(['full_date']) }}   AS date_key
+      CONCAT(dim_date.year,dim_date.month,dim_date.day_of_month)   AS date_key
       ,*
-FROM transform
+FROM dim_date__extract AS dim_date

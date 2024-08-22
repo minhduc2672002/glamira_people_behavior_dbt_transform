@@ -1,4 +1,4 @@
-WITH alloy_cte AS (
+WITH dim_alloy__source AS (
   SELECT DISTINCT
     CASE 
       WHEN option.value_label IS NOT NULL  THEN  option.value_label
@@ -11,16 +11,17 @@ WITH alloy_cte AS (
   UNION DISTINCT
 
   SELECT
-    coalesce(option.value_label,'unknown') AS alloy_value
+    option.value_label AS alloy_value
   FROM `people-behavior-glamira`.`glamira`.`summary`,
   UNNEST(cart_products) AS cart_products,
   UNNEST(cart_products.option) AS  option
   WHERE option.option_label = 'alloy'
 )
-,format_name AS (
+
+,dim_alloy__format_name AS (
     SELECT
     DISTINCT
-    coalesce(CASE
+    CASE
         -- Nếu chuỗi chứa số, trích xuất phần trước số và số, sau đó thay thế ký tự `_` và `-` bằng khoảng trắng
               WHEN REGEXP_CONTAINS(alloy_value, r'[0-9]') THEN
                   CONCAT(
@@ -39,11 +40,17 @@ WITH alloy_cte AS (
               -- Nếu chuỗi không chứa số, thay thế ký tự `_` và `-` bằng khoảng trắng
               ELSE
                   REGEXP_REPLACE(alloy_value, r'[_-]', ' ')
-          END,'unknown') AS alloy_name
-    FROM alloy_cte
+          END AS alloy_name
+    FROM dim_alloy__source
+)
+
+,dim_alloy_handle_null AS (
+  SELECT
+    COALESCE(alloy_name,'Undefined') AS alloy_name
+  FROM dim_alloy__format_name
 )
 SELECT
     DISTINCT
     {{ dbt_utils.generate_surrogate_key(['alloy_name']) }} AS alloy_key
     ,alloy_name
-FROM format_name
+FROM dim_alloy_handle_null
